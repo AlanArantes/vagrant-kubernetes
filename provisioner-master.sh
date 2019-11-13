@@ -15,11 +15,6 @@ systemctl stop firewalld
 
 # Kubernetes Installation on master
 yum install -y docker
-cat <<EOF > /etc/docker/daemon.js
-{
-  "insecure-registries" : ["192.168.0.12:50000"]
-}
-EOF
 systemctl enable docker && systemctl start docker
     
 cat <<EOF > /etc/yum.repos.d/kubernetes.repo
@@ -44,6 +39,7 @@ sysctl --system
 swapoff /swapfile
 sed -i 's/\/swapfile/#\/swapfile/' /etc/fstab
 
+yum -y upgrade
 yum -y install kubelet kubeadm kubectl
 systemctl enable kubelet && systemctl start kubelet
    
@@ -53,63 +49,11 @@ mkdir -p $HOME/.kube
 sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
 sudo chown $(id -u):$(id -g) $HOME/.kube/config
 
-kubectl apply -f https://docs.projectcalico.org/v3.1/getting-started/kubernetes/installation/hosted/kubeadm/1.7/calico.yaml
+curl -Ss https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml -OS
+kubectl apply -f kube-flannel.yml
 
-kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/master/aio/deploy/recommended/kubernetes-dashboard.yaml
-
-cat <<EOF > dashboard-adminuser.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: admin-user
-  namespace: kube-system
-EOF
-kubectl apply -f dashboard-adminuser.yaml
-
-cat <<EOF > dashboard-rbac.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: admin-user
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: cluster-admin
-subjects:
-- kind: ServiceAccount
-  name: admin-user
-  namespace: kube-system
-EOF
-
-kubectl apply -f dashboard-rbac.yaml
-
-kubectl -n kube-system describe secret $(kubectl -n kube-system get secret | grep admin-user | awk '{print $1}')
-
-kubectl -n kube-system get service kubernetes-dashboard -o yaml | sed 's/type: ClusterIP/type: NodePort/g' > kubernetes-dashboard.yaml && kubectl apply -f kubernetes-dashboard.yaml
-
-cat <<EOF > kubernetes-anonymous-grant.yaml 
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: anonymous-role
-rules:
-- apiGroups: [""]
-  resources: ["services/proxy"]
-  verbs: ["*"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: anonymous-binding
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: anonymous-role
-subjects:
-- apiGroup: rbac.authorization.k8s.io
-  kind: User
-  name: system:anonymous
-EOF
+curl -Ss https://raw.githubusercontent.com/kubernetes/dashboard/v2.0.0-beta4/aio/deploy/recommended.yaml -o kube-dashboard.yml
+kubectl apply -f kube-dashboard.yml
 
 kubectl get services -n kube-system | grep dashboard
 
