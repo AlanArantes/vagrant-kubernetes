@@ -79,5 +79,8 @@ Vagrant.configure("2") do |config|
   #   apt-get install -y apache2
   # SHELL
 
-  config.vm.provision "shell", path: "provisioner-master.sh"
+  config.vm.provision "shell", path: "setup.sh"
+  config.vm.provision "shell", path: "install-docker.sh"
+  config.vm.provision "shell", path: "install-kubernetes.sh"
+  config.vm.provision "shell", path: "setup-kubernetes-master.sh"
 end
